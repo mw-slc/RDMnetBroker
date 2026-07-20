@@ -1,6 +1,6 @@
 # RDMnet Broker
 
-This repository contains an installable service for Mac and Windows which implements the functionality of an RDMnet Broker, as described in the ANSI E1.33 RDMnet standard.
+This repository contains an installable service for Linux, Mac, and Windows which implements the functionality of an RDMnet Broker, as described in the ANSI E1.33 RDMnet standard.
 
 For more information on RDMnet, see ETC's RDMnet
 [repository](https://github.com/ETCLabs/RDMnet) and
@@ -47,6 +47,35 @@ Several artifacts are provided with each release to facilitate the installation 
 * Windows MSI installers for both x86 and x64, for standalone installation or execution from another installer.
 * Windows merge modules for both x86 and x64 - use one of these to add the RDMnet broker service to your installer.
 * Mac PKG installer, which can be used for standalone installation or added to another installer.
+
+## Building on Linux
+
+The Linux build requires CMake 3.15 or newer, a C++17 compiler, Git, the libuuid and Avahi client development packages (for example, `uuid-dev` and `libavahi-client-dev` on Ubuntu), and a build tool such as Ninja. Other dependencies are fetched automatically at configure time.
+
+```bash
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DRDMNETBROKER_BUILD_TESTS=ON
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+The executable is written to `build/src/linux/RDMnetBrokerService`. By default it reads `/etc/rdmnetbroker/broker.conf` and writes `/var/log/rdmnetbroker/broker.log`; both paths can be overridden for an unprivileged run:
+
+```bash
+./build/src/linux/RDMnetBrokerService --config ./broker.conf --log-file ./broker.log
+```
+
+Send `SIGHUP` to reload the configuration, or `SIGINT`/`SIGTERM` to stop the service cleanly. Run with `--help` for all command-line options. A staged install can be created with `cmake --install build --prefix <path>`.
+
+The Avahi daemon must be installed and running when the broker service starts so that RDMnet DNS-SD can initialize.
+
+### Linux Releases
+
+Pushing a tag using the existing four-part version format, such as `v1.0.0.12`, runs the Linux release workflow. The tag must match `tools/version/current_version.txt` and the version compiled into the executable. After the build and tests pass, the workflow creates a release named `RDMnet Broker v1.0.0.12` with these assets:
+
+* `RDMnetBroker_linux_x64.tar.gz`
+* `RDMnetBroker_linux_x64.tar.gz.sha256`
+
+The archive contains the broker executable, a default configuration file, the README, and the license.
 
 ## Installation and Behavior
 

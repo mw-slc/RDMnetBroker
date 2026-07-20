@@ -80,7 +80,7 @@ bool BrokerShell::Run()
       }
     }
 
-    if (shutdown_requested_)
+    if (shutdown_requested_.load())
     {
       break;
     }
@@ -116,7 +116,7 @@ void BrokerShell::RequestRestart(uint32_t cooldown_ms)
 void BrokerShell::AsyncShutdown()
 {
   log_.Info("Shutdown requested, Broker shutting down...");
-  shutdown_requested_ = true;
+  shutdown_requested_.store(true);
 }
 
 void BrokerShell::PrintVersion()

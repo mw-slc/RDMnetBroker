@@ -1,0 +1,90 @@
+name: Linux Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*.*"
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-and-release:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Validate release version
+        id: version
+        shell: bash
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tag must use the vMAJOR.MINOR.PATCH.BUILD format."
+            exit 1
+          fi
+
+          version="${GITHUB_REF_NAME#v}"
+          source_version="$(tr -d '[:space:]' < tools/version/current_version.txt)"
+          if [[ "$version" != "$source_version" ]]; then
+            echo "Tag version $version does not match source version $source_version."
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install --yes cmake ninja-build g++ uuid-dev libavahi-client-dev
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DRDMNETBROKER_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --parallel 2
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Verify compiled version
+        shell: bash
+        run: |
+          compiled_version="$(build/src/linux/RDMnetBrokerService --version | awk '/^Version / {gsub(",", "", $2); print $2}')"
+          if [[ "$compiled_version" != "${{ steps.version.outputs.version }}" ]]; then
+            echo "Compiled version $compiled_version does not match release version ${{ steps.version.outputs.version }}."
+            exit 1
+          fi
+
+      - name: Package Linux release
+        shell: bash
+        run: |
+          package_root="$RUNNER_TEMP/RDMnetBroker_linux_x64"
+          mkdir -p "$package_root"
+          install -m 0755 build/src/linux/RDMnetBrokerService "$package_root/RDMnetBrokerService"
+          install -m 0644 tools/install/macos/src/broker.conf "$package_root/broker.conf"
+          install -m 0644 README.md LICENSE "$package_root/"
+          tar -C "$RUNNER_TEMP" -czf RDMnetBroker_linux_x64.tar.gz RDMnetBroker_linux_x64
+          sha256sum RDMnetBroker_linux_x64.tar.gz > RDMnetBroker_linux_x64.tar.gz.sha256
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" \
+              RDMnetBroker_linux_x64.tar.gz \
+              RDMnetBroker_linux_x64.tar.gz.sha256 \
+              --clobber \
+              --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              RDMnetBroker_linux_x64.tar.gz \
+              RDMnetBroker_linux_x64.tar.gz.sha256 \
+              --title "RDMnet Broker $GITHUB_REF_NAME" \
+              --notes "Automated release of RDMnet Broker for $GITHUB_REF_NAME" \
+              --verify-tag \
+              --repo "$GITHUB_REPOSITORY"
+          fi
