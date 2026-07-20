@@ -68,6 +68,14 @@ Send `SIGHUP` to reload the configuration, or `SIGINT`/`SIGTERM` to stop the ser
 
 The Avahi daemon must be installed and running when the broker service starts so that RDMnet DNS-SD can initialize.
 
+### Linux Releases
+
+Pushing a tag using the existing four-part version format, such as `v1.0.0.12`, runs the Linux release workflow. The tag must match `tools/version/current_version.txt` and the version compiled into the executable. After the build and tests pass, the workflow creates a release named `RDMnet Broker v1.0.0.12` with these assets:
+
+* `RDMnetBroker_linux_x64.tar.gz`
+* `RDMnetBroker_linux_x64.tar.gz.sha256`
+
+The archive contains the broker executable, a default configuration file, the README, and the license.
 
 ## Installation and Behavior
 
