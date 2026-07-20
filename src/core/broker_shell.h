@@ -65,7 +65,7 @@ private:
   mutable etcpal::Mutex lock_;  // These are guarded by this lock
   etcpal::Timer         restart_timer_;
   bool                  restart_requested_{false};
-  bool                  shutdown_requested_{false};
+  std::atomic<bool>     shutdown_requested_{false};
   std::string           new_scope_;
 
   bool OpenLogFile();
